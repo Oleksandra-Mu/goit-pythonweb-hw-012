@@ -1,3 +1,5 @@
+"""User-related API endpoints (profile, avatar upload, etc.)."""
+
 from typing import List
 
 from fastapi import (
@@ -40,6 +42,7 @@ limiter = Limiter(key_func=get_remote_address)
 async def me(
     request: Request, user: ResponseUser = Depends(auth_service.get_current_user)
 ):
+    """Return information about the currently authenticated user."""
     return user
 
 
@@ -50,6 +53,12 @@ async def update_avatar_user(
     db: Session = Depends(get_db),
     redis_client: Redis = Depends(lambda: Redis(host="localhost", port=6379, db=0)),
 ):
+    """Upload a new avatar and update the user's profile.
+
+    The file is uploaded to Cloudinary via `UploadFileService`; after a
+    successful upload the resulting URL is persisted to the database and the
+    user cache entry is invalidated.
+    """
     avatar_url = UploadFileService(
         settings.CLD_NAME, settings.CLD_API_KEY, settings.CLD_API_SECRET
     ).upload_file(file, user.full_name)

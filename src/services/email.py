@@ -1,6 +1,7 @@
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
 from fastapi_mail.errors import ConnectionErrors
 from pydantic import SecretStr
+from typing import Optional
 
 from pathlib import Path
 from src.services.auth import auth_service
@@ -23,24 +24,72 @@ conf = ConnectionConfig(
 )
 
 
-async def send_email(email: str, username: str, host: str):
+async def send_templated_email(
+    email: str,
+    username: str,
+    host: str,
+    subject: str,
+    template_name: str,
+    reset_link: Optional[str] = None,
+    token: Optional[str] = None,
+):
+    """Send an email rendered from a Jinja2/HTML template.
+
+    Args:
+        email: Recipient email address.
+        username: Recipient username for personalization.
+        host: Base URL of the backend (used for links).
+        subject: Email subject line.
+        template_name: Name of the template file in templates folder.
+        reset_link: Optional URL for password reset flow.
+        token: Optional confirmation/reset token to embed.
+    """
     try:
-        token_verification = auth_service.create_email_token({"sub": email})
+        if not reset_link:
+            token = auth_service.create_email_token({"sub": email})
+
         message = MessageSchema(
-            subject="Confirm your email",
+            subject=subject,
             recipients=[email],
             template_body={
                 "host": host,
                 "username": username,
-                "token": token_verification,
+                "token": token,
+                "reset_link": reset_link,
             },
             subtype=MessageType.html,
         )
 
         fm = FastMail(conf)
-        await fm.send_message(message, template_name="email_template.html")
-        print(f"Email sent to {email}")
+        await fm.send_message(message, template_name=template_name)
+        print(f"Email ({subject}) sent to {email}")
     except ConnectionErrors as err:
         print(f"Connection error: {err}")
     except Exception as err:
         print(f"General error: {err}")
+
+
+async def send_email(email: str, username: str, host: str):
+    """Send email confirmation message with token link to the user."""
+    await send_templated_email(
+        email=email,
+        username=username,
+        host=host,
+        subject="Confirm your email",
+        template_name="email_template.html",
+    )
+
+
+async def send_reset_email(email: str, username: str, host: str, token: str):
+    """Send password reset email with generated reset_link."""
+    reset_link = f"{host}api/auth/reset_password/{token}"
+    print(f"Generated reset_link: {reset_link}")
+    await send_templated_email(
+        email=email,
+        username=username,
+        host=host,
+        subject="Reset Your Password",
+        template_name="reset_password_template.html",
+        reset_link=reset_link,
+        token=token,
+    )

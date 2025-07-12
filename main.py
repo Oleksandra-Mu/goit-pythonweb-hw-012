@@ -3,7 +3,7 @@ import time
 from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from contextlib import asynccontextmanager
 from src.database.db import get_db, engine, Base
 from src.routes import contacts, users, auth
@@ -11,12 +11,14 @@ from src.routes import contacts, users, auth
 
 @asynccontextmanager
 async def lifespan(fastapi_app: FastAPI):
-    try:
-        Base.metadata.create_all(bind=engine)
-    except Exception as e:
-        print(f"Error creating tables: {e}")
+    async with engine.begin() as conn:
+        try:
+            await conn.run_sync(Base.metadata.create_all)
+            print("Database tables created successfully.")
+        except Exception as e:
+            print(f"Error creating database tables: {e}")
     yield
-    print("Application shutting down")
+    print("Application shutting down.")
 
 
 app = FastAPI(lifespan=lifespan)
@@ -46,10 +48,10 @@ def read_root():
 
 
 @app.get("/api/healthchecker")
-def healthchecker(db: Session = Depends(get_db)):
+async def healthchecker(db: AsyncSession = Depends(get_db)):
     try:
         # Make request
-        result = db.execute(text("SELECT 1")).fetchone()
+        result = await db.execute(text("SELECT 1")).fetchone()
         print(result)
         if result is None:
             raise HTTPException(

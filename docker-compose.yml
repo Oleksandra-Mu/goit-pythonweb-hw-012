@@ -7,23 +7,23 @@ services:
       - "6379:6379"
   db:
     image: postgres:latest
-    container_name: postgres_server
+    container_name: postgres_serv
     restart: always
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: contacts
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: contactpassword2024
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
   pgadmin:
     image: dpage/pgadmin4
-    container_name: pgadmin_ui
+    container_name: ui_pgadmin
     restart: always
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@gmail.com
-      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_DEFAULT_EMAIL: final@gmail.com
+      PGADMIN_DEFAULT_PASSWORD: final
     ports:
       - "5050:80"
     depends_on:

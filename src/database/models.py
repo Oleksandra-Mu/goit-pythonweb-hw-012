@@ -1,9 +1,19 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
+"""SQLAlchemy ORM models representing application entities."""
+
+import enum
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Enum
 from sqlalchemy.orm import relationship
 from src.database.db import Base
 
 
+class Role(enum.Enum):
+    """Enumeration of application roles."""
+    admin: str = "admin"
+    user: str = "user"
+
+
 class Users(Base):
+    """Table storing registered users."""
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True)
@@ -13,9 +23,11 @@ class Users(Base):
     avatar = Column(String(255), nullable=True)
     refresh_token = Column(String(255), nullable=True)
     confirmed = Column(Boolean, default=False)
+    roles = Column("roles", Enum(Role), default=Role.user)
 
 
 class Contacts(Base):
+    """Table containing user contact records."""
     __tablename__ = "contacts"
 
     id = Column(Integer, primary_key=True)

@@ -13,6 +13,8 @@ from src.database.db import get_db
 
 
 class Auth:
+    """Authentication service with password hashing utilities, JWT token creation
+    and validation helpers, and Redis-based user cache operations."""
     ALGORITHM = "HS256"
 
     pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -20,12 +22,31 @@ class Auth:
     r = redis.Redis(host="localhost", port=6379, db=0)
 
     def verify_password(self, plain_password, hashed_password):
+        """Verify a plain password against its hashed counterpart.
+
+        Args:
+            plain_password: The password supplied by the user in plain text.
+            hashed_password: The hashed password stored in database.
+
+        Returns:
+            bool: True if passwords match, else False.
+        """
         return self.pwd_context.verify(plain_password, hashed_password)
 
     def get_password_hash(self, password: str):
+        """Hash a password using the configured bcrypt algorithm."""
         return self.pwd_context.hash(password)
 
     async def create_access_token(self, data: dict, expires_delta: float = 15):
+        """Create a JWT access token.
+
+        Args:
+            data: Payload to encode inside the token.
+            expires_delta: Expiration time in minutes.
+
+        Returns:
+            str: Encoded JWT string.
+        """
         to_encode = data.copy()
         expire = datetime.utcnow() + timedelta(minutes=expires_delta)
         to_encode.update(
@@ -37,10 +58,11 @@ class Auth:
         return encoded_access_token
 
     def create_email_token(self, data: dict):
+        """Create a short-lived JWT token for email confirmation or password reset."""
         to_encode = data.copy()
         expire = datetime.utcnow() + timedelta(hours=1)
         to_encode.update(
-            {"iat": datetime.utcnow(), "exp": expire, "scope": "email_token"}
+            {"iat": datetime.utcnow(), "exp": expire, "token_scope": "reset_password"}
         )
         token = jwt.encode(to_encode, settings.HASH_SECRET, algorithm=self.ALGORITHM)
         return token
@@ -48,6 +70,7 @@ class Auth:
     async def get_current_user(
         self, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
     ):
+        """Return currently authenticated user based on Bearer token."""
         credentials_exception = HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
@@ -74,7 +97,7 @@ class Auth:
             if user is None:
                 raise credentials_exception
             self.r.set(f"user:{email}", pickle.dumps(user))
-            self.r.expire(f"user:{email}", 900)
+            self.r.expire(f"user:{email}", 3600)
         else:
             user = pickle.loads(user)
 
@@ -83,11 +106,12 @@ class Auth:
         return user
 
     def get_email_from_token(self, token: str):
+        """Extract user email from a password-reset or confirmation token."""
         try:
             payload = jwt.decode(
                 token, settings.HASH_SECRET, algorithms=[self.ALGORITHM]
             )
-            if payload["scope"] == "email_token":
+            if payload["token_scope"] == "reset_password":
                 email = payload["sub"]
                 return email
             raise HTTPException(

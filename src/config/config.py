@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     VALIDATE_CERTS: bool = True
 
     class Config:
-        env_file = Path(__file__).parent.parent / ".env"
+        env_file = Path(__file__).parent.parent.parent / ".env"
         env_file_encoding = "utf-8"
 
 
